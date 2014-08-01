@@ -67,11 +67,11 @@ import Prelude hiding (minimum)
 newtype Min a = Min { getMin :: a }
 
 instance Functor Min where
-    fmap  = undefined 
+    fmap f = Min . f . getMin
 
 instance Applicative Min where
-    pure  = undefined 
-    (<*>) = undefined 
+    pure  = Min 
+    (<*>) (Min f) = fmap f
 
 instance (Bounded a, Ord a) => Monoid (Min a) where 
     mempty = Min maxBound
@@ -114,39 +114,51 @@ data BTree b a = Leaf a | Node b (BTree b a) (BTree b a)
     deriving (Show, Read, Eq, Ord)
 
 root :: BTree b a -> Either b a
-root = undefined
+root (Leaf x) = Right x
+root (Node x _ _) = Left x
 
 leaf :: BTree b a -> a
-leaf = undefined 
+leaf (Leaf x) = x
+leaf (Node _ _ _) = error "leaf : est Node"
 
 node :: BTree b a -> b
-node = undefined
+node (Leaf _) = error "node : est Leaf"
+node (Node x _ _) = x
 
 left :: BTree b a -> BTree b a 
-left = undefined
+left (Leaf _) = error "left : est Leaf"
+left (Node _ l _) = l
 
 right :: BTree b a -> BTree b a 
-right = undefined
+right (Leaf _) = error "right : est Leaf"
+right (Node _ _ r) = r
 
 isLeaf :: BTree b a -> Bool
-isLeaf = undefined
+isLeaf (Leaf _) = True
+isLeaf (Node _ _ _) = False
 
 isNode :: BTree b a -> Bool
-isNode = undefined
+isNode (Leaf _) = False
+isNode (Node _ _ _) = True
 
 btree :: (b -> c) -> (a -> c) -> BTree b a -> c 
-btree = undefined 
+btree _ f (Leaf x) = f x
+btree f _ (Node x _ _) = f x 
 
 instance Functor (BTree b) where
-    fmap = undefined
+    fmap f (Leaf x) = Leaf $ f x
+    fmap f (Node x l r) = Node x (fmap f l) (fmap f r)
 
 instance Applicative (BTree b) where 
-    pure = undefined
-    f <*> x  = undefined 
+    pure = Leaf
+    -- Respecte une application similaire à celle des listes.
+    (Node v l r) <*> x  = Node v (l <*> x) (r <*> x)
+    (Leaf f) <*> x  = fmap f x 
 
 instance Monad (BTree b) where 
     return = pure 
-    m >>= k = undefined 
+    (Leaf m) >>= k = k m 
+    (Node m l r) >>= k = Node m (l >>= k) (r >>= k)
 
 {- $question3
    Implémenter les fonctions utilisant la structure de donnée algébrique 'File'.
@@ -160,12 +172,14 @@ instance Monad (BTree b) where
    de la fonction. La complexité des opérations sur les listes sont indiqués dans 
 -}
 
-data File a = File -- à faire 
+{-data File a = File [a]-}
+data File a = File { getList :: [a]}
     deriving (Eq, Ord, Show, Read) 
 
 {- | @'vide'@ est la file vide -}
 vide :: File a
-vide = undefined
+vide = File []
+-- Complexité : O(1)
 
 {- | @'estVide' xs@ retourne 'True' si la file @xs@ est vide; 'False' sinon. 
    On a les propriétés suivantes :
@@ -174,7 +188,8 @@ vide = undefined
    >> estVide $ ajoute xs x = False 
 -}
 estVide :: File a -> Bool
-estVide = undefined 
+estVide = null . getList
+-- Complexité : O(1)
 
 {- | @'premier' xs@ retourne le premier élément en tête de la liste @xs@.
    Si @xs@ est vide, @'premier' xs@ retourne une erreur.
@@ -183,7 +198,9 @@ estVide = undefined
    >> premier $ vide = error "premier : file vide" 
 -}
 premier :: File a -> a
-premier = undefined
+premier (File []) = error "premier : file vide"
+premier (File (x:_)) = x
+-- Complexité : O(1)
 
 {- | @'reste' xs@ retourne la file @xs@ privé de son premier élément.
    Si @xs@ est vide, @'reste' xs@ retourne une erreur.
@@ -192,7 +209,9 @@ premier = undefined
    >> reste $ vide = error "reste : file vide" 
 -}
 reste :: File a -> File a
-reste = undefined
+reste (File []) = error "reste : file vide"
+reste (File (_:xs)) = File xs
+-- Complexité : O(1)
 
 {- | @xs '<+' x@ ajoute l'élément @x@ à la fin de la file @xs@ 
    On a les propriétés suivantes :
@@ -201,7 +220,8 @@ reste = undefined
    >> reste $ vide <+ x = vide
 -}
 (<+) :: File a -> a -> File a
-(<+) = undefined 
+(<+) (File xs) x = File $ xs ++ [x] 
+-- Complexité : O(n), où n est la taille de la file
 
 {- | @xs '<+<' ys@ retourne la File constituée des éléments de @xs@ suivis 
    de ceux de @ys@. 
@@ -214,7 +234,8 @@ reste = undefined
    >> (xs <+< ys) <+ z = xs <+< (ys <+ z) 
 -}
 (<+<) :: File a -> File a -> File a
-(<+<) = undefined 
+(<+<) (File xs) (File ys) = File $ xs ++ ys
+-- Complexité : O(n), où n est la taille de la première file
 
 {- | @'renverse' xs@ retourne la file des éléments de @xs@ disposés dans le 
    sens inverse de ceux de @xs@
@@ -226,7 +247,8 @@ reste = undefined
    >> renverse $ xs <+< ys = renverse ys <+< renverse xs
 -}
 renverse :: File a -> File a
-renverse = undefined 
+renverse = File . reverse . getList
+-- Complexité : O(n), où n est la taille de la file
 
 {- | @'taille' xs@ retourne la taille de la file @xs@ 
    On a les propriétés suivantes :
@@ -238,5 +260,6 @@ renverse = undefined
    >> taille $ renverse xs = taille xs 
 -}
 taille :: File a -> Int 
-taille = undefined 
+taille = length . getList
+-- Complexité : O(n), où n est la taille de la file
 
